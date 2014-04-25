@@ -19,7 +19,6 @@ module GoodTuring
 	function simpleGoodTuring(df::DataFrame, countIdx::Symbol)
 		totalCounts = sum(df[countIdx])
 		cofc = countOfCounts(df, countIdx)
-		sortedCounts = sort(cofc[:r])
 
 		p0 = cofc[cofc[:r] .==1, :Nr][1] / totalCounts
 
@@ -40,7 +39,7 @@ module GoodTuring
 			r = cofc[i,:r]
 			y = (r+1) * exp(slope * log(r+1) + intercept) / exp(slope * log(r) + intercept)
 
-			if !contains(cofc[:r], r+1)
+			if !in(r+1, cofc[:r])
 				if !useY
 					println("Something Bad")
 				end
