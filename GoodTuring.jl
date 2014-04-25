@@ -1,3 +1,7 @@
+#' This is an implementation of Simple Good Turing Smothing,
+#' as described by 
+
+
 module GoodTuring
 
 	using DataFrames, GLM
@@ -61,7 +65,7 @@ module GoodTuring
 			end
 		end
 
-		smoothTot = sum(cofc[:Nr] + cofc[:rSmooth])
+		smoothTot = sum(cofc[:Nr] .* cofc[:rSmooth])
 		cofc[:sgtProb] = (1.0 - p0) * (cofc[:rSmooth]/smoothTot)
 
 		if countIdx != :r
@@ -70,6 +74,13 @@ module GoodTuring
 
 		df = join(df, cofc[[:r,:sgtProb]], on = :r, kind = :left)
 
+		return df, p0
+	end
+
+	function simpleGoodTuring(x::DataFrames.DataArray)
+		df = DataFrame(species = x)
+		speciesCount = by(df, :species, df -> DataFrame(r = size(df, 1)))
+		df, p0 = simpleGoodTuring(speciesCount, :r)
 		return df, p0
 	end
 
