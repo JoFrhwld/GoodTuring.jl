@@ -18,25 +18,33 @@ module GoodTuring
 
 	function simpleGoodTuring(df::DataFrame, countIdx::Symbol)
 		totalCounts = sum(df[countIdx])
-		cofc = countOfCounts(df, countIdx)
+		cofc0 = countOfCounts(df, countIdx)
+		N = size(cofc0,1)
+		cofc = DataFrame(r = cofc0[:r], Nr = cofc0[:Nr],
+						 Z = fill(0.0, N),
+						 logr = fill(0.0, N),
+						 logZ = fill(0.0, N),
+						 rSmooth = fill(0.0, N),
+						 sgtProb = fill(0.0, N))
 
 		p0 = cofc[cofc[:r] .==1, :Nr][1] / totalCounts
 
 		cofc[:Z] = sgtZ(cofc)
 
-		cofc[:logr] = log(cofc[:r])
-		cofc[:logZ] = log(cofc[:Z])
+
+		for i=1:N
+			cofc[:logr][i] = log(cofc[:r][i])
+			cofc[:logZ][i] = log(cofc[:Z][i])
+		end
 
 		mod = lm(logZ~logr, cofc)
 		coefs = GLM.coef(mod)
 		intercept = coefs[1]
 		slope = coefs[2]
 
-		cofc[:rSmooth] = 0.0::Float64
-
 		useY = false
-		for i = 1:size(cofc,1)
-			r = cofc[i,:r]
+		for i = 1:N
+			r = cofc[:r][i]
 			y = (r+1) * exp(slope * log(r+1) + intercept) / exp(slope * log(r) + intercept)
 
 			if !in(r+1, cofc[:r])
@@ -64,8 +72,13 @@ module GoodTuring
 			end
 		end
 
-		smoothTot = sum(cofc[:Nr] .* cofc[:rSmooth])
-		cofc[:sgtProb] = (1.0 - p0) * (cofc[:rSmooth]/smoothTot)
+		smoothTot = 0.0
+		for i=1:N
+			smoothTot += sum(cofc[:Nr][i] * cofc[:rSmooth][i])
+		end
+		for i=1:N
+			cofc[:sgtProb][i] = (1.0 - p0) * (cofc[:rSmooth][i]/smoothTot)
+		end
 
 		if countIdx != :r
 			df.colindex = rename(df.colindex, [(countIdx => :r)])
@@ -89,6 +102,12 @@ module GoodTuring
 		i = [0, j[1:nCounts-1]]
 		lastK = 2*j[nCounts] - i[nCounts]
 		k = [j[2:nCounts], lastK]
+
+		Z = fill(0.0, nCounts)
+
+		for iter = 1:nCounts
+			Z[iter] = (2*cofc[:Nr][iter])/(k[iter]-i[iter])
+		end
 
 		Z = (2*cofc[:Nr])./(k-i)
 		return(Z)
