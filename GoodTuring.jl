@@ -4,7 +4,7 @@
 
 module GoodTuring
 
-	using DataFrames, GLM
+	using DataFrames#, GLM
 	export countOfCounts
 	export simpleGoodTuring
 
@@ -37,8 +37,11 @@ module GoodTuring
 			cofc[:logZ][i] = log(cofc[:Z][i])
 		end
 
-		mod = lm(logZ~logr, cofc)
-		coefs = GLM.coef(mod)
+		#mod = lm(logZ~logr, cofc)
+		#coefs = GLM.coef(mod)
+		X = hcat(ones(N), convert(Array, cofc[:logr]))
+		Y = convert(Array, cofc[:logZ])
+		coefs = X\Y
 		intercept = coefs[1]
 		slope = coefs[2]
 
