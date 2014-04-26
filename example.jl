@@ -2,23 +2,27 @@ using GoodTuring, Gadfly, DataFrames
 
 buck = readtable("data/buck_coded2.csv")
 
-# DataArray method
+function bootstrapWords(x)
+	N = size(x,1)
+	words = x[rand(1:N, N)]
+	return words
+end
+
+function timeSGT(N, words::DataFrames.DataArray)
+    timings = Array(Float64, N)
+
+    # Force compilation
+    sgtEst, p0 = simpleGoodTuring(words)
+
+
+    for itr in 1:N
+    	bootwords = bootstrapWords(words)
+        timings[itr] = @elapsed simpleGoodTuring(words)
+    end
+
+    return timings
+end
+
+timings = timeSGT(100, buck[:Word])
+
 sgtEst, p0 = simpleGoodTuring(buck[:Word])
-sgtEst[:ML] = sgtEst[:r]/sum(sgtEst[:r])
-
-sgtPlot = plot(sgtEst, 
-			layer(x = [minimum(sgtEst[:sgtProb]), max(sgtEst[:sgtProb])],
-				  y= [minimum(sgtEst[:sgtProb]), max(sgtEst[:sgtProb])],
-                  Geom.line),
-			layer(x = "ML", y = "sgtProb", Geom.point), 
- 			Scale.y_log10, 
-			Scale.x_log10)
-
-draw(SVG("sgt.svg", 4inch, 3inch), sgtPlot)
-
-
-sum(sgtEst[:sgtProb])
-
-# DataFrame method
-wordCount = by(buck, :Word, df -> DataFrame(r = size(df, 1)))
-sgtEst2, p0_2 = simpleGoodTuring(wordCount, :r)
