@@ -10,12 +10,14 @@ module GoodTuring
 
 	function simpleGoodTuring(speciesCountDict)
 		speciesCountVec = collect(values(speciesCountDict))
+		Nspecies = length(speciesCountVec)
+
 		totalCounts = sum(speciesCountVec)
 		cofcDict = countmap(speciesCountVec)
 		r = sort(collect(keys(cofcDict)))
-		Nr = Array(Float64, size(r,1))
 
 		N = size(r,1)
+		Nr = Array(Float64, N)
 
 		for i in 1:N
 			Nr[i] = cofcDict[r[i]]
@@ -24,8 +26,8 @@ module GoodTuring
 		p0 = cofcDict[1] / totalCounts
 
 		Z = sgtZ(r,Nr)
-		logr = Array(Float64, length(r))
-		logZ = Array(Float64, length(Z))
+		logr = Array(Float64, N)
+		logZ = Array(Float64, N)
 
 		for i=1:N
 			logr[i] = log(r[i])
@@ -41,7 +43,7 @@ module GoodTuring
 		slope = coefs[2]
 
 		useY = false
-		rSmooth = Array(Float64, length(r))
+		rSmooth = Array(Float64, N)
 		for i = 1:N
 			thisr = r[i]
 			y = (thisr+1) * exp(slope * log(thisr+1) + intercept) / exp(slope * log(thisr) + intercept)
@@ -76,7 +78,7 @@ module GoodTuring
 			smoothTot += Nr[i] * rSmooth[i]
 		end
 
-		sgtProb = Array(Float64, length(r))
+		sgtProb = Array(Float64, N)
 		for i=1:N
 			sgtProb[i] = (1.0 - p0) * (rSmooth[i]/smoothTot)
 		end
@@ -84,10 +86,10 @@ module GoodTuring
 		sgtProbDict = Dict()
 		for i=1:N
 			sgtProbDict[r[i]] = sgtProb[i]
-		end
+
 		species = collect(keys(speciesCountDict))
-		speciesr = Array(Float64, length(species))
-		speciesSgt = Array(Float64, length(species))
+		speciesr = Array(Float64, Nspecies)
+		speciesSgt = Array(Float64, Nspecies)
 		speciesML = Array(Float64, length(species))
 		for i=1:length(species)
 			speciesr[i] = speciesCountDict[species[i]]

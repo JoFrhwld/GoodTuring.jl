@@ -1,4 +1,4 @@
-using GoodTuring, Gadfly, DataFrames
+using GoodTuring, Gadfly, DataFrames, StatsBase
 
 buck = readtable("data/buck_coded2.csv")
 
@@ -10,6 +10,7 @@ end
 
 function timeSGT(N, words::DataFrames.DataArray)
     timings = Array(Float64, N)
+    Nspecies = Array(Float64, N)
 
     # Force compilation
     sgtEst, p0 = simpleGoodTuring(words)
@@ -18,11 +19,12 @@ function timeSGT(N, words::DataFrames.DataArray)
     for itr in 1:N
     	bootwords = bootstrapWords(words)
         timings[itr] = @elapsed simpleGoodTuring(words)
+        Nspecies[itr] = length(unique(bootwords))
     end
 
-    return timings
+    return timings, Nspecies
 end
 
-timings = timeSGT(100, buck[:Word])
+timings, Ntypes = timeSGT(100, buck[:Word])
 
 sgtEst, p0 = simpleGoodTuring(buck[:Word])
