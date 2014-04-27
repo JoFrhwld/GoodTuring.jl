@@ -86,6 +86,7 @@ module GoodTuring
 		sgtProbDict = Dict()
 		for i=1:N
 			sgtProbDict[r[i]] = sgtProb[i]
+		end
 
 		species = collect(keys(speciesCountDict))
 		speciesr = Array(Float64, Nspecies)
