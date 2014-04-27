@@ -4,53 +4,49 @@
 
 module GoodTuring
 
-	using DataFrames#, GLM
-	export countOfCounts
+	using DataFrames, StatsBase#, GLM
 	export simpleGoodTuring
 
-	function countOfCounts(df::DataFrame, countIdx::Symbol)
-		cofc = by(df, countIdx, df -> DataFrame(Nr = size(df, 1)))
-		if countIdx != :r
-			cofc.colindex = rename(cofc.colindex, [(countIdx=>symbol("r"))])
+
+	function simpleGoodTuring(speciesCountDict)
+		speciesCountVec = collect(values(speciesCountDict))
+		totalCounts = sum(speciesCountVec)
+		cofcDict = countmap(speciesCountVec)
+		r = sort(collect(keys(cofcDict)))
+		Nr = Array(Float64, size(r,1))
+
+		N = size(r,1)
+
+		for i in 1:N
+			Nr[i] = cofcDict[r[i]]
 		end
-		return cofc
-	end
 
-	function simpleGoodTuring(df::DataFrame, countIdx::Symbol)
-		totalCounts = sum(df[countIdx])
-		cofc0 = countOfCounts(df, countIdx)
-		N = size(cofc0,1)
-		cofc = DataFrame(r = cofc0[:r], Nr = cofc0[:Nr],
-						 Z = fill(0.0, N),
-						 logr = fill(0.0, N),
-						 logZ = fill(0.0, N),
-						 rSmooth = fill(0.0, N),
-						 sgtProb = fill(0.0, N))
+		p0 = cofcDict[1] / totalCounts
 
-		p0 = cofc[cofc[:r] .==1, :Nr][1] / totalCounts
-
-		cofc[:Z] = sgtZ(cofc)
-
+		Z = sgtZ(r,Nr)
+		logr = Array(Float64, length(r))
+		logZ = Array(Float64, length(Z))
 
 		for i=1:N
-			cofc[:logr][i] = log(cofc[:r][i])
-			cofc[:logZ][i] = log(cofc[:Z][i])
+			logr[i] = log(r[i])
+			logZ[i] = log(Z[i])
 		end
 
 		#mod = lm(logZ~logr, cofc)
 		#coefs = GLM.coef(mod)
-		X = hcat(ones(N), convert(Array, cofc[:logr]))
-		Y = convert(Array, cofc[:logZ])
+		X = hcat(ones(N), logr)
+		Y = convert(Array, logZ)
 		coefs = X\Y
 		intercept = coefs[1]
 		slope = coefs[2]
 
 		useY = false
+		rSmooth = Array(Float64, length(r))
 		for i = 1:N
-			r = cofc[:r][i]
-			y = (r+1) * exp(slope * log(r+1) + intercept) / exp(slope * log(r) + intercept)
+			thisr = r[i]
+			y = (thisr+1) * exp(slope * log(thisr+1) + intercept) / exp(slope * log(thisr) + intercept)
 
-			if !in(r+1, cofc[:r])
+			if !in(thisr+1, r)
 				if !useY
 					println("Something Bad")
 				end
@@ -58,49 +54,60 @@ module GoodTuring
 			end
 
 			if useY
-				cofc[:rSmooth][i] = y
+				rSmooth[i] = y
 			else
-				x = (r+1) * cofc[cofc[:r].==r+1,:Nr][1] / cofc[cofc[:r].==r,:Nr][1]
-				Nr = cofc[cofc[:r].==r+1,:Nr][1]
-				Nr1 = cofc[cofc[:r].==r,:Nr][1]
+				x = (thisr+1) * cofcDict[thisr + 1]/cofcDict[thisr]
+				thisNr = cofcDict[thisr]
+				thisNr1 = cofcDict[thisr+1]
 
-				t = 1.96 * ((r+1)^2) * (Nr1 / Nr^2) * (1 + (Nr1 / Nr))
+				t = 1.96 * ((thisr+1)^2) * (thisNr1 / thisNr^2) * (1 + (thisNr1 / thisNr))
 
 				if abs(x-y) > t
-					cofc[:rSmooth][i] = x
+					rSmooth[i] = x
 				else
 					useY = true
-					cofc[:rSmooth][i] = y					
+					rSmooth[i] = y					
 				end
 			end
 		end
 
 		smoothTot = 0.0
 		for i=1:N
-			smoothTot += sum(cofc[:Nr][i] * cofc[:rSmooth][i])
+			smoothTot += Nr[i] * rSmooth[i]
 		end
+
+		sgtProb = Array(Float64, length(r))
 		for i=1:N
-			cofc[:sgtProb][i] = (1.0 - p0) * (cofc[:rSmooth][i]/smoothTot)
+			sgtProb[i] = (1.0 - p0) * (rSmooth[i]/smoothTot)
 		end
 
-		if countIdx != :r
-			df.colindex = rename(df.colindex, [(countIdx => :r)])
+		sgtProbDict = Dict()
+		for i=1:N
+			sgtProbDict[r[i]] = sgtProb[i]
+		end
+		species = collect(keys(speciesCountDict))
+		speciesr = Array(Float64, length(species))
+		speciesSgt = Array(Float64, length(species))
+		speciesML = Array(Float64, length(species))
+		for i=1:length(species)
+			speciesr[i] = speciesCountDict[species[i]]
+			speciesSgt[i] = sgtProbDict[speciesCountDict[species[i]]]
+			speciesML[i] = speciesCountDict[species[i]]/totalCounts
 		end
 
-		df = join(df, cofc[[:r,:sgtProb]], on = :r, kind = :left)
-
+		df = DataFrame(species = species, r = speciesr, sgtProb = speciesSgt, MLProb = speciesML)
+		
 		return df, p0
 	end
 
 	function simpleGoodTuring(x::DataFrames.DataArray)
-		df = DataFrame(species = x)
-		speciesCount = by(df, :species, df -> DataFrame(r = size(df, 1)))
-		df, p0 = simpleGoodTuring(speciesCount, :r)
+		speciesCountDict = countmap(x)
+		df, p0 = simpleGoodTuring(speciesCountDict)
 		return df, p0
 	end
 
-	function sgtZ(cofc)
-		j = cofc[:r]
+	function sgtZ(r::Array, Nr::Array)
+		j = r
 		nCounts = length(j)
 		i = [0, j[1:nCounts-1]]
 		lastK = 2*j[nCounts] - i[nCounts]
@@ -109,10 +116,8 @@ module GoodTuring
 		Z = fill(0.0, nCounts)
 
 		for iter = 1:nCounts
-			Z[iter] = (2*cofc[:Nr][iter])/(k[iter]-i[iter])
+			Z[iter] = (2*Nr[iter])/(k[iter]-i[iter])
 		end
-
-		Z = (2*cofc[:Nr])./(k-i)
 		return(Z)
 	end
 
