@@ -8,7 +8,7 @@ module GoodTuring
 	export simpleGoodTuring
 
 
-	function simpleGoodTuring(speciesCountDict)
+	function simpleGoodTuring(speciesCountDict::Dict)
 		speciesCountVec = collect(values(speciesCountDict))
 		Nspecies = length(speciesCountVec)
 
@@ -23,7 +23,11 @@ module GoodTuring
 			Nr[i] = cofcDict[r[i]]
 		end
 
-		p0 = cofcDict[1] / totalCounts
+		if haskey(cofcDict, 1.0)
+			p0 = cofcDict[1.0] / totalCounts
+		else
+			p0 = 0
+		end
 
 		Z = sgtZ(r,Nr)
 		logr = Array(Float64, N)
@@ -49,9 +53,6 @@ module GoodTuring
 			y = (thisr+1) * exp(slope * log(thisr+1) + intercept) / exp(slope * log(thisr) + intercept)
 
 			if !in(thisr+1, r)
-				if !useY
-					println("Something Bad")
-				end
 				useY = true
 			end
 
@@ -89,18 +90,16 @@ module GoodTuring
 		end
 
 		species = collect(keys(speciesCountDict))
-		speciesr = Array(Float64, Nspecies)
 		speciesSgt = Array(Float64, Nspecies)
-		speciesML = Array(Float64, length(species))
+
+		sgtDict = Dict{Any, Float64}()
+
 		for i=1:length(species)
-			speciesr[i] = speciesCountDict[species[i]]
-			speciesSgt[i] = sgtProbDict[speciesCountDict[species[i]]]
-			speciesML[i] = speciesCountDict[species[i]]/totalCounts
+			sgtDict[species[i]] = sgtProbDict[speciesCountDict[species[i]]]
 		end
 
-		df = DataFrame(species = species, r = speciesr, sgtProb = speciesSgt, MLProb = speciesML)
 		
-		return df, p0
+		return sgtDict, sgtProbDict, p0
 	end
 
 	function simpleGoodTuring(x::DataFrames.DataArray)
@@ -108,6 +107,13 @@ module GoodTuring
 		df, p0 = simpleGoodTuring(speciesCountDict)
 		return df, p0
 	end
+
+	function simpleGoodTuring(x::Array)
+		speciesCountDict = countmap(x)
+		df, p0 = simpleGoodTuring(speciesCountDict)
+		return df, p0
+	end
+
 
 	function sgtZ(r::Array, Nr::Array)
 		j = r
