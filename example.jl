@@ -27,4 +27,4 @@ end
 
 timings, Ntypes = timeSGT(100, buck[:Word])
 
-sgtEst, p0 = simpleGoodTuring(buck[:Word])
+

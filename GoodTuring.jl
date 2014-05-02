@@ -20,7 +20,7 @@ module GoodTuring
 		Nr = Array(Float64, N)
 
 		for i in 1:N
-			Nr[i] = cofcDict[r[i]]
+			@inbounds Nr[i] = cofcDict[r[i]]
 		end
 
 		if haskey(cofcDict, 1.0)
@@ -34,8 +34,8 @@ module GoodTuring
 		logZ = Array(Float64, N)
 
 		for i=1:N
-			logr[i] = log(r[i])
-			logZ[i] = log(Z[i])
+			@inbounds logr[i] = log(r[i])
+			@inbounds logZ[i] = log(Z[i])
 		end
 
 		#mod = lm(logZ~logr, cofc)
@@ -49,7 +49,7 @@ module GoodTuring
 		useY = false
 		rSmooth = Array(Float64, N)
 		for i = 1:N
-			thisr = r[i]
+			@inbounds thisr = r[i]
 			y = (thisr+1) * exp(slope * log(thisr+1) + intercept) / exp(slope * log(thisr) + intercept)
 
 			if !in(thisr+1, r)
@@ -66,27 +66,27 @@ module GoodTuring
 				t = 1.96 * ((thisr+1)^2) * (thisNr1 / thisNr^2) * (1 + (thisNr1 / thisNr))
 
 				if abs(x-y) > t
-					rSmooth[i] = x
+					@inbounds rSmooth[i] = x
 				else
 					useY = true
-					rSmooth[i] = y					
+					@inbounds rSmooth[i] = y					
 				end
 			end
 		end
 
 		smoothTot = 0.0
 		for i=1:N
-			smoothTot += Nr[i] * rSmooth[i]
+			@inbounds smoothTot += Nr[i] * rSmooth[i]
 		end
 
 		sgtProb = Array(Float64, N)
 		for i=1:N
-			sgtProb[i] = (1.0 - p0) * (rSmooth[i]/smoothTot)
+			@inbounds sgtProb[i] = (1.0 - p0) * (rSmooth[i]/smoothTot)
 		end
 
 		sgtProbDict = Dict()
 		for i=1:N
-			sgtProbDict[r[i]] = sgtProb[i]
+			@inbounds sgtProbDict[r[i]] = sgtProb[i]
 		end
 
 		species = collect(keys(speciesCountDict))
@@ -95,7 +95,7 @@ module GoodTuring
 		sgtDict = Dict{Any, Float64}()
 
 		for i=1:length(species)
-			sgtDict[species[i]] = sgtProbDict[speciesCountDict[species[i]]]
+			@inbounds sgtDict[species[i]] = sgtProbDict[speciesCountDict[species[i]]]
 		end
 
 		
@@ -125,7 +125,7 @@ module GoodTuring
 		Z = fill(0.0, nCounts)
 
 		for iter = 1:nCounts
-			Z[iter] = (2*Nr[iter])/(k[iter]-i[iter])
+			@inbounds Z[iter] = (2*Nr[iter])/(k[iter]-i[iter])
 		end
 		return(Z)
 	end
